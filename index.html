@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+<title>Interactive frame pipelining timeline</title>
+
+<style type="text/css">
+#pipeline { display: block; }
+input { vertical-align: middle; }
+</style>
+</head>
+
+<body>
+<canvas id="pipeline" width="800" height="168"></canvas>
+<div>
+  <input id="periodInput" type="range" min="1" max="48" value="12">
+  <span id="periodLabel"></span>
+</div>
+<div>
+  <input id="updateInput" type="range" min="0" max="48" value="6">
+  <span id="updateLabel"></span>
+</div>
+<div>
+  <input id="renderInput" type="range" min="0" max="48" value="6">
+  <span id="renderLabel"></span>
+</div>
+<div>
+  <span id="latencyLabel"></span>
+</div>
+
+<script type="text/javascript">
+const cx = pipeline.getContext("2d");
+cx.textAlign = "center";
+cx.textBaseline = "middle";
+
+periodInput.addEventListener("input", update);
+updateInput.addEventListener("input", update);
+renderInput.addEventListener("input", update);
+update();
+
+function update() {
+  const period = 1 * periodInput.value;
+  const update = 1 * updateInput.value;
+  const render = 1 * renderInput.value;
+
+  const hz = 720 / period;
+  const dt = 1000 / hz;
+
+  function nextVsync(f) { return Math.ceil(f / dt) * dt; }
+
+  periodLabel.innerText = `${dt.toPrecision(4)}ms (${hz.toPrecision(3)}Hz)`;
+  updateLabel.innerText = `${update}ms update`;
+  renderLabel.innerText = `${render}ms render`;
+  latencyLabel.innerText = `${nextVsync(update + render).toPrecision(4)}ms latency`;
+
+  let prevPresent = 0;
+  while (0 <= nextVsync(prevPresent + update + render)) { prevPresent -= dt; }
+
+  let tUpdate = -Infinity;
+  let tRender = -Infinity;
+  let tPresent = -Infinity;
+
+  let n = -1;
+
+  cx.clearRect(0, 0, pipeline.width, pipeline.height);
+  while (4 * tUpdate < 800) {
+    tUpdate = Math.max(nextVsync(tUpdate + update), prevPresent);
+    cx.fillStyle = "#ee3333";
+    cx.fillRect(10 + 4 * tUpdate, 10, 4, 64);
+    cx.fillStyle = "#4488dd";
+    cx.fillRect(10 + 4 * (tUpdate + 1), 10, 4 * (update - 1), 64);
+    cx.fillStyle = "#000000";
+    cx.fillText(`${n}`, 10 + 4 * (tUpdate + update / 2), 42);
+
+    tRender = Math.max(tRender + render, tUpdate + update);
+    cx.fillStyle = "#33bb66";
+    cx.fillRect(10 + 4 * tRender, 74, 4 * render, 64);
+    cx.fillStyle = "#000000";
+    cx.fillText(`${n}`, 10 + 4 * (tRender + render / 2), 106);
+
+    prevPresent = tPresent;
+    tPresent = nextVsync(tRender + render);
+    cx.fillStyle = "#888888";
+    cx.fillRect(10 + 4 * tPresent, 138, 4 * dt, 20);
+    cx.fillStyle = "#000000";
+    cx.fillText(`${n}`, 10 + 4 * (tPresent + dt / 2), 148);
+
+    n += 1;
+  }
+  for (let t = 0; 4 * t < 800; t += dt) {
+    cx.fillStyle = "#000000";
+    cx.fillRect(10 + 4 * t, 10, 1, 148);
+  }
+}
+</script>
+</body>
+</html>
