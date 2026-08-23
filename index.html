@@ -55,7 +55,11 @@ function update() {
   periodLabel.innerText = `${dt.toPrecision(4)}ms (${hz.toPrecision(3)}Hz)`;
   updateLabel.innerText = `${update}ms update`;
   renderLabel.innerText = `${render}ms render`;
-  latencyLabel.innerText = `${nextVsync(update + render).toPrecision(4)}ms latency`;
+  if (vsyncInput.checked) {
+    latencyLabel.innerText = `${nextVsync(update + render).toPrecision(4)}ms latency`;
+  } else {
+    latencyLabel.innerText = `${update + render}ms - ${nextVsync(update + render).toPrecision(4)}ms latency`;
+  }
 
   let prevPresent = 0;
   if (vsyncInput.checked) {
