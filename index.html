@@ -12,6 +12,10 @@ input { vertical-align: middle; }
 <body>
 <canvas id="pipeline" width="800" height="168"></canvas>
 <div>
+  <input id="vsyncInput" type="checkbox" checked>
+  <label for="vsyncInput">VSync</label>
+</div>
+<div>
   <input id="periodInput" type="range" min="1" max="48" value="12">
   <span id="periodLabel"></span>
 </div>
@@ -32,6 +36,7 @@ const cx = pipeline.getContext("2d");
 cx.textAlign = "center";
 cx.textBaseline = "middle";
 
+vsyncInput.addEventListener("input", update);
 periodInput.addEventListener("input", update);
 updateInput.addEventListener("input", update);
 renderInput.addEventListener("input", update);
@@ -53,7 +58,11 @@ function update() {
   latencyLabel.innerText = `${nextVsync(update + render).toPrecision(4)}ms latency`;
 
   let prevPresent = 0;
-  while (0 <= nextVsync(prevPresent + update + render)) { prevPresent -= dt; }
+  if (vsyncInput.checked) {
+    while (0 <= nextVsync(prevPresent + update + render)) { prevPresent -= dt; }
+  } else {
+    prevPresent -= update + render + Math.max(update, render);
+  }
 
   let tUpdate = -Infinity;
   let tRender = -Infinity;
@@ -63,7 +72,11 @@ function update() {
 
   cx.clearRect(0, 0, pipeline.width, pipeline.height);
   while (4 * tUpdate < 800) {
-    tUpdate = Math.max(nextVsync(tUpdate + update), prevPresent);
+    if (vsyncInput.checked) {
+      tUpdate = Math.max(nextVsync(tUpdate + update), prevPresent);
+    } else {
+      tUpdate = Math.max(tUpdate + update, prevPresent);
+    }
     cx.fillStyle = "#ee3333";
     cx.fillRect(10 + 4 * tUpdate, 10, 4, 64);
     cx.fillStyle = "#4488dd";
@@ -72,17 +85,29 @@ function update() {
     cx.fillText(`${n}`, 10 + 4 * (tUpdate + update / 2), 42);
 
     tRender = Math.max(tRender + render, tUpdate + update);
+    cx.fillStyle = "#ee00ee";
+    cx.fillRect(10 + 4 * tRender, 74, 4, 64);
     cx.fillStyle = "#33bb66";
-    cx.fillRect(10 + 4 * tRender, 74, 4 * render, 64);
+    cx.fillRect(10 + 4 * (tRender + 1), 74, 4 * (render - 1), 64);
     cx.fillStyle = "#000000";
     cx.fillText(`${n}`, 10 + 4 * (tRender + render / 2), 106);
 
     prevPresent = tPresent;
-    tPresent = nextVsync(tRender + render);
+    if (vsyncInput.checked) {
+      tPresent = nextVsync(tRender + render);
+    } else {
+      tPresent = tRender + render;
+    }
+    cx.fillStyle = "#eeee00";
+    cx.fillRect(10 + 4 * tPresent, 138, 4, 20);
     cx.fillStyle = "#888888";
-    cx.fillRect(10 + 4 * tPresent, 138, 4 * dt, 20);
+    cx.fillRect(10 + 4 * (tPresent + 1), 138, 4 * (dt - 1), 20);
     cx.fillStyle = "#000000";
-    cx.fillText(`${n}`, 10 + 4 * (tPresent + dt / 2), 148);
+    if (vsyncInput.checked) {
+      cx.fillText(`${n}`, 10 + 4 * (tPresent + dt / 2), 148);
+    } else {
+      cx.fillText(`${n}`, 10 + 4 * (tPresent + Math.min(Math.max(update, render), dt) / 2), 148);
+    }
 
     n += 1;
   }
