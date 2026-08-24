@@ -10,7 +10,7 @@ input { vertical-align: middle; }
 </head>
 
 <body>
-<canvas id="pipeline" width="800" height="168"></canvas>
+<canvas id="pipeline" width="800" height="182"></canvas>
 <div>
   <input id="vsyncInput" type="checkbox" checked>
   <label for="vsyncInput">VSync</label>
@@ -49,6 +49,9 @@ function update() {
 
   const hz = 720 / period;
   const dt = 1000 / hz;
+  let min;
+  let maxSample;
+  let max;
 
   function nextVsync(f) { return Math.ceil(f / dt) * dt; }
 
@@ -56,9 +59,15 @@ function update() {
   updateLabel.innerText = `${update}ms update`;
   renderLabel.innerText = `${render}ms render`;
   if (vsyncInput.checked) {
-    latencyLabel.innerText = `${nextVsync(update + render).toPrecision(4)}ms latency`;
+    min = nextVsync(update + render);
+    maxSample = nextVsync(Math.max(update, render));
+    max = maxSample + nextVsync(Math.max(update, render) + render);
+    latencyLabel.innerText = `${min.toPrecision(4)}ms - ${max.toPrecision(4)}ms latency`;
   } else {
-    latencyLabel.innerText = `${update + render}ms - ${nextVsync(update + render).toPrecision(4)}ms latency`;
+    min = update + render;
+    maxSample = Math.max(update, render);
+    max = maxSample + (update + render) + dt;
+    latencyLabel.innerText = `${min}ms - ${max.toPrecision(4)}ms latency`;
   }
 
   let prevPresent = 0;
@@ -74,8 +83,9 @@ function update() {
 
   let n = -1;
 
+  let latencyShown = false;
   cx.clearRect(0, 0, pipeline.width, pipeline.height);
-  while (4 * tUpdate < 800) {
+  while (4 * tUpdate < 10 + pipeline.width + 10) {
     if (vsyncInput.checked) {
       tUpdate = Math.max(nextVsync(tUpdate + update), prevPresent);
     } else {
@@ -113,9 +123,17 @@ function update() {
       cx.fillText(`${n}`, 10 + 4 * (tPresent + Math.min(Math.max(update, render), dt) / 2), 148);
     }
 
+    if (!latencyShown && dt <= (tUpdate - maxSample)) {
+      latencyShown = true;
+      cx.fillStyle = "#ee6666";
+      cx.fillRect(10 + 4 * (tUpdate - maxSample), 168, 4 * max, 4);
+      cx.fillStyle = "#ee3333";
+      cx.fillRect(10 + 4 * tUpdate, 168, 4 * min, 4);
+    }
+
     n += 1;
   }
-  for (let t = 0; 4 * t < 800; t += dt) {
+  for (let t = 0; 4 * t < 10 + pipeline.width + 10; t += dt) {
     cx.fillStyle = "#000000";
     cx.fillRect(10 + 4 * t, 10, 1, 148);
   }
